@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.env
+venv/
+.venv/
+
+# Generated proto stubs (regenerate with protoc)
+server/chat_pb2.py
+server/chat_pb2_grpc.py
+client/chat_pb2.py
+client/chat_pb2_grpc.py
+
+# Database (contains user data!)
+server/chat.db
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# macOS
+.DS_Store
+
+# Secrets / env
+*.env
+.env.*
+secrets.py

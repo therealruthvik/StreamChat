@@ -1,0 +1,80 @@
+syntax = "proto3";
+package chat;
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
+message RegisterRequest { string username = 1; string password = 2; string display_name = 3; }
+message LoginRequest    { string username = 1; string password = 2; }
+message AuthResponse    { bool success = 1; string token = 2; string message = 3; string username = 4; string display_name = 5; }
+
+// ─── Users / Friends ─────────────────────────────────────────────────────────
+
+message SearchRequest  { string token = 1; string query = 2; }
+message UserInfo       { string username = 1; string display_name = 2; bool online = 3; string friend_status = 4; }
+message SearchResponse { repeated UserInfo users = 1; }
+
+message FriendRequest  { string token = 1; string to_username = 2; }
+message FriendResponse { bool success = 1; string message = 2; }
+
+message FriendListRequest  { string token = 1; }
+message FriendListResponse { repeated UserInfo friends = 1; }
+
+message PendingRequest      { string token = 1; }
+message PendingResponse     { repeated UserInfo requests = 1; }
+
+message RespondFriendRequest { string token = 1; string from_username = 2; bool accept = 3; }
+
+// ─── Rooms ───────────────────────────────────────────────────────────────────
+
+message CreateRoomRequest { string token = 1; string room_name = 2; }
+message JoinRoomRequest   { string token = 1; string room_id = 2; }
+message RoomResponse      { bool success = 1; string room_id = 2; string room_name = 3; string message = 4; }
+message ListRoomsRequest  { string token = 1; }
+message Room              { string room_id = 1; string room_name = 2; int32 members = 3; }
+message ListRoomsResponse { repeated Room rooms = 1; }
+
+// ─── Messages ────────────────────────────────────────────────────────────────
+
+message ChatMessage {
+  string token     = 1;
+  string room_id   = 2;
+  string to_user   = 3;
+  string content   = 4;
+  string sender    = 5;
+  string display_name = 6;
+  string timestamp = 7;
+  string msg_id    = 8;
+}
+
+message HistoryRequest  { string token = 1; string room_id = 2; string to_user = 3; int32 limit = 4; }
+message HistoryResponse { repeated ChatMessage messages = 1; }
+
+// ─── Online Status ────────────────────────────────────────────────────────────
+
+message HeartbeatRequest  { string token = 1; }
+message HeartbeatResponse { bool ok = 1; }
+message OnlineStatusRequest  { string token = 1; repeated string usernames = 2; }
+message OnlineStatusResponse { map<string, bool> status = 1; }
+
+// ─── Service ─────────────────────────────────────────────────────────────────
+
+service ChatService {
+  rpc Register    (RegisterRequest) returns (AuthResponse);
+  rpc Login       (LoginRequest)    returns (AuthResponse);
+
+  rpc SearchUsers      (SearchRequest)        returns (SearchResponse);
+  rpc SendFriendRequest(FriendRequest)        returns (FriendResponse);
+  rpc RespondFriend    (RespondFriendRequest) returns (FriendResponse);
+  rpc GetFriends       (FriendListRequest)    returns (FriendListResponse);
+  rpc GetPendingRequests(PendingRequest)      returns (PendingResponse);
+
+  rpc CreateRoom (CreateRoomRequest) returns (RoomResponse);
+  rpc JoinRoom   (JoinRoomRequest)   returns (RoomResponse);
+  rpc ListRooms  (ListRoomsRequest)  returns (ListRoomsResponse);
+
+  rpc ChatStream  (stream ChatMessage)   returns (stream ChatMessage);
+  rpc GetHistory  (HistoryRequest)       returns (HistoryResponse);
+
+  rpc Heartbeat      (HeartbeatRequest)   returns (HeartbeatResponse);
+  rpc GetOnlineStatus(OnlineStatusRequest) returns (OnlineStatusResponse);
+}
