@@ -1,16 +1,12 @@
 import { useState, useEffect, useRef, useCallback, createContext, useContext } from "react";
 
-// ─── API ─────────────────────────────────────────────────────────────────────
-
 const API = "http://localhost:8001/api";
-
 const api = {
   post: async (path, body, tok) => {
     const r = await fetch(`${API}${path}`, {
-      method: "POST", headers: {
-        "Content-Type": "application/json",
-        ...(tok ? { Authorization: `Bearer ${tok}` } : {})
-      }, body: JSON.stringify(body)
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(tok ? { Authorization: `Bearer ${tok}` } : {}) },
+      body: JSON.stringify(body)
     });
     return r.json();
   },
@@ -23,65 +19,49 @@ const api = {
   }
 };
 
-// ─── Auth Context ────────────────────────────────────────────────────────────
-
 const AuthCtx = createContext(null);
 const useAuth = () => useContext(AuthCtx);
-
-// ─── Utilities ───────────────────────────────────────────────────────────────
 
 const fmt = (ts) => {
   if (!ts) return "";
   const d = new Date(ts);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const diffMins = Math.floor((Date.now() - d) / 60000);
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffMins < 1440) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleDateString([], { month: "short", day: "numeric" });
 };
 
-const initials = (name) =>
-  name?.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2) || "?";
+const initials = (name) => name?.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2) || "?";
+const COLORS = ["#1877F2","#42B72A","#F7B928","#F02849","#8B5CF6","#06B6D4"];
+const avatarColor = (name) => COLORS[(name?.charCodeAt(0) || 0) % COLORS.length];
 
-const COLORS = ["#6366f1","#8b5cf6","#ec4899","#14b8a6","#f59e0b","#10b981","#3b82f6","#f43f5e"];
-const avatarColor = (name) => COLORS[name?.charCodeAt(0) % COLORS.length || 0];
+const isImg = (c) => c?.startsWith("[IMG]");
+const parseImg = (c) => { const p = c.slice(5).split("|||"); return { src: p[0], text: p[1] || "" }; };
 
-// ─── Components ──────────────────────────────────────────────────────────────
-
+// ─── Avatar ───────────────────────────────────────────────────────────────────
 function Avatar({ name, size = 36, online }) {
   return (
     <div style={{ position: "relative", flexShrink: 0 }}>
       <div style={{
         width: size, height: size, borderRadius: "50%",
-        background: `linear-gradient(135deg, ${avatarColor(name)}, ${avatarColor(name + "x")})`,
+        background: avatarColor(name),
         display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: size * 0.35, fontWeight: 700, color: "#fff",
-        fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.02em"
-      }}>
-        {initials(name)}
-      </div>
+        fontSize: size * 0.38, fontWeight: 700, color: "#fff"
+      }}>{initials(name)}</div>
       {online !== undefined && (
         <div style={{
-          position: "absolute", bottom: 0, right: 0,
-          width: size * 0.28, height: size * 0.28,
-          borderRadius: "50%", border: "2px solid #0f1117",
-          background: online ? "#22c55e" : "#4b5563"
+          position: "absolute", bottom: 1, right: 1,
+          width: Math.max(10, size * 0.28), height: Math.max(10, size * 0.28),
+          borderRadius: "50%", border: "2px solid #fff",
+          background: online ? "#31A24C" : "#CED0D4"
         }} />
       )}
     </div>
   );
 }
 
-function Spinner() {
-  return (
-    <div style={{ display: "flex", justifyContent: "center", padding: 24 }}>
-      <div style={{
-        width: 24, height: 24, borderRadius: "50%",
-        border: "2px solid #1e2330", borderTopColor: "#6366f1",
-        animation: "spin 0.7s linear infinite"
-      }} />
-    </div>
-  );
-}
-
-// ─── Login / Register ────────────────────────────────────────────────────────
-
+// ─── Auth Page ────────────────────────────────────────────────────────────────
 function AuthPage({ onAuth }) {
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState({ username: "", password: "", display_name: "" });
@@ -92,133 +72,91 @@ function AuthPage({ onAuth }) {
     setErr(""); setLoading(true);
     try {
       const r = await api.post(`/${mode}`, form);
-      if (r.success) onAuth(r);
-      else setErr(r.message);
+      if (r.success) onAuth(r); else setErr(r.message);
     } catch { setErr("Server unreachable"); }
     setLoading(false);
   };
 
   return (
     <div style={{
-      minHeight: "100vh", background: "#080b12",
+      minHeight: "100vh", background: "#F0F2F5",
       display: "flex", alignItems: "center", justifyContent: "center",
-      fontFamily: "'DM Sans', sans-serif"
+      fontFamily: SYS, gap: 48, padding: "0 16px", flexWrap: "wrap"
     }}>
+      <div style={{ maxWidth: 360 }}>
+        <div style={{ fontSize: 52, fontWeight: 900, color: "#1877F2", fontStyle: "italic", marginBottom: 12 }}>
+          streamchat
+        </div>
+        <div style={{ fontSize: 22, color: "#1C1E21", lineHeight: 1.4 }}>
+          Connect with friends and the world around you.
+        </div>
+      </div>
+
       <div style={{
-        width: 420, background: "#0f1117",
-        border: "1px solid #1e2330", borderRadius: 20,
-        padding: "48px 40px", boxShadow: "0 32px 80px rgba(0,0,0,0.6)"
+        background: "#fff", borderRadius: 8, padding: 16, width: 396,
+        boxShadow: "0 2px 4px rgba(0,0,0,0.1),0 8px 16px rgba(0,0,0,0.1)"
       }}>
-        {/* Logo */}
-        <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <div style={{
-            width: 56, height: 56, borderRadius: 16, margin: "0 auto 16px",
-            background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 26
-          }}>💬</div>
-          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: "#f1f5f9", letterSpacing: "-0.03em" }}>
-            StreamChat
-          </h1>
-          <p style={{ margin: "6px 0 0", color: "#64748b", fontSize: 14 }}>
-            {mode === "login" ? "Welcome back" : "Create your account"}
-          </p>
-        </div>
-
-        {/* Toggle */}
-        <div style={{
-          display: "flex", background: "#1a1f2e", borderRadius: 10,
-          padding: 4, marginBottom: 28
-        }}>
-          {["login","register"].map(m => (
-            <button key={m} onClick={() => { setMode(m); setErr(""); }} style={{
-              flex: 1, padding: "8px 0", border: "none", borderRadius: 8,
-              background: mode === m ? "#6366f1" : "transparent",
-              color: mode === m ? "#fff" : "#64748b",
-              fontWeight: 600, fontSize: 14, cursor: "pointer",
-              fontFamily: "inherit", transition: "all 0.2s"
-            }}>
-              {m.charAt(0).toUpperCase() + m.slice(1)}
-            </button>
-          ))}
-        </div>
-
-        {/* Fields */}
         {mode === "register" && (
-          <Input label="Display Name" value={form.display_name}
-            onChange={v => setForm(f => ({ ...f, display_name: v }))}
-            placeholder="Your Name" />
+          <FbInput placeholder="Display Name" value={form.display_name}
+            onChange={v => setForm(f => ({ ...f, display_name: v }))} />
         )}
-        <Input label="Username" value={form.username}
-          onChange={v => setForm(f => ({ ...f, username: v }))}
-          placeholder="username" />
-        <Input label="Password" value={form.password} type="password"
-          onChange={v => setForm(f => ({ ...f, password: v }))}
-          placeholder="••••••••" onEnter={submit} />
+        <FbInput placeholder="Username" value={form.username}
+          onChange={v => setForm(f => ({ ...f, username: v }))} />
+        <FbInput placeholder="Password" value={form.password} type="password"
+          onChange={v => setForm(f => ({ ...f, password: v }))} onEnter={submit} />
 
-        {err && (
-          <div style={{
-            background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)",
-            color: "#f87171", borderRadius: 8, padding: "10px 14px",
-            fontSize: 13, marginBottom: 20
-          }}>{err}</div>
-        )}
+        {err && <div style={{ color: "#F02849", fontSize: 13, marginBottom: 12, paddingLeft: 4 }}>{err}</div>}
 
         <button onClick={submit} disabled={loading} style={{
-          width: "100%", padding: "13px 0", border: "none", borderRadius: 12,
-          background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-          color: "#fff", fontWeight: 700, fontSize: 15, cursor: "pointer",
-          fontFamily: "inherit", opacity: loading ? 0.7 : 1,
-          boxShadow: "0 4px 20px rgba(99,102,241,0.35)"
-        }}>
-          {loading ? "..." : mode === "login" ? "Sign In" : "Create Account"}
-        </button>
+          width: "100%", padding: "14px 0", background: "#1877F2",
+          border: "none", borderRadius: 6, color: "#fff",
+          fontSize: 20, fontWeight: 700, cursor: loading ? "default" : "pointer",
+          fontFamily: SYS, opacity: loading ? 0.7 : 1, marginBottom: 16
+        }}>{loading ? "..." : mode === "login" ? "Log in" : "Sign Up"}</button>
+
+        <div style={{ borderTop: "1px solid #CED0D4", paddingTop: 16, textAlign: "center" }}>
+          {mode === "login"
+            ? <button onClick={() => { setMode("register"); setErr(""); }} style={{
+                background: "#42B72A", border: "none", borderRadius: 6,
+                padding: "14px 24px", color: "#fff", fontSize: 17,
+                fontWeight: 700, cursor: "pointer", fontFamily: SYS
+              }}>Create new account</button>
+            : <button onClick={() => { setMode("login"); setErr(""); }} style={{
+                background: "none", border: "none", color: "#1877F2",
+                fontSize: 14, cursor: "pointer", fontFamily: SYS, fontWeight: 600
+              }}>Already have an account? Log in</button>
+          }
+        </div>
       </div>
     </div>
   );
 }
 
-function Input({ label, value, onChange, type = "text", placeholder, onEnter }) {
+function FbInput({ placeholder, value, onChange, type = "text", onEnter }) {
+  const [focused, setFocused] = useState(false);
   return (
-    <div style={{ marginBottom: 18 }}>
-      <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-        {label}
-      </label>
-      <input
-        type={type} value={value} placeholder={placeholder}
-        onChange={e => onChange(e.target.value)}
-        onKeyDown={e => e.key === "Enter" && onEnter?.()}
-        style={{
-          width: "100%", padding: "11px 14px", background: "#1a1f2e",
-          border: "1px solid #1e2330", borderRadius: 10, color: "#f1f5f9",
-          fontSize: 14, fontFamily: "inherit", outline: "none",
-          boxSizing: "border-box", transition: "border-color 0.2s"
-        }}
-        onFocus={e => e.target.style.borderColor = "#6366f1"}
-        onBlur={e => e.target.style.borderColor = "#1e2330"}
-      />
-    </div>
+    <input type={type} value={value} placeholder={placeholder}
+      onChange={e => onChange(e.target.value)}
+      onKeyDown={e => e.key === "Enter" && onEnter?.()}
+      onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+      style={{
+        width: "100%", padding: "14px 16px", marginBottom: 12,
+        border: `1px solid ${focused ? "#1877F2" : "#CED0D4"}`,
+        borderRadius: 6, fontSize: 17, fontFamily: SYS,
+        outline: "none", boxSizing: "border-box", color: "#1C1E21", background: "#fff"
+      }} />
   );
 }
 
-// ─── Main App Shell ──────────────────────────────────────────────────────────
-
+// ─── App Root ─────────────────────────────────────────────────────────────────
 function App() {
   const [user, setUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem("chat_user")); } catch { return null; }
   });
 
-  const onAuth = (data) => {
-    localStorage.setItem("chat_user", JSON.stringify(data));
-    setUser(data);
-  };
+  const onAuth = (data) => { localStorage.setItem("chat_user", JSON.stringify(data)); setUser(data); };
+  const logout = () => { localStorage.removeItem("chat_user"); setUser(null); };
 
-  const logout = () => {
-    localStorage.removeItem("chat_user");
-    setUser(null);
-  };
-
-  // Heartbeat
   useEffect(() => {
     if (!user) return;
     const hb = () => api.post("/heartbeat", {}, user.token);
@@ -230,39 +168,31 @@ function App() {
   if (!user) return <AuthPage onAuth={onAuth} />;
   return (
     <AuthCtx.Provider value={user}>
-      <ChatShell onLogout={logout} />
+      <FbShell onLogout={logout} />
     </AuthCtx.Provider>
   );
 }
 
-// ─── Chat Shell ──────────────────────────────────────────────────────────────
-
-function ChatShell({ onLogout }) {
+// ─── Shell ────────────────────────────────────────────────────────────────────
+function FbShell({ onLogout }) {
   const user = useAuth();
-  const [tab, setTab] = useState("friends");       // friends | rooms | search | pending
   const [friends, setFriends] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [pending, setPending] = useState([]);
-  const [activeChat, setActiveChat] = useState(null); // {type:'dm'|'room', id, name}
+  const [activeRoom, setActiveRoom] = useState(null);
+  const [openDMs, setOpenDMs] = useState([]);
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState([]);
-  const [newRoom, setNewRoom] = useState("");
-  const [showNewRoom, setShowNewRoom] = useState(false);
-  const [sidebarLoading, setSidebarLoading] = useState(false);
+  const [nav, setNav] = useState("home");
 
   const loadFriends = useCallback(async () => {
-    const r = await api.get("/friends", user.token);
-    setFriends(r.friends || []);
+    const r = await api.get("/friends", user.token); setFriends(r.friends || []);
   }, [user.token]);
-
   const loadRooms = useCallback(async () => {
-    const r = await api.get("/rooms", user.token);
-    setRooms(r.rooms || []);
+    const r = await api.get("/rooms", user.token); setRooms(r.rooms || []);
   }, [user.token]);
-
   const loadPending = useCallback(async () => {
-    const r = await api.get("/friends/pending", user.token);
-    setPending(r.requests || []);
+    const r = await api.get("/friends/pending", user.token); setPending(r.requests || []);
   }, [user.token]);
 
   useEffect(() => {
@@ -271,20 +201,29 @@ function ChatShell({ onLogout }) {
     return () => clearInterval(iv);
   }, [loadFriends, loadRooms, loadPending]);
 
-  const doSearch = useCallback(async (q) => {
-    if (!q.trim()) { setSearchResults([]); return; }
-    const r = await api.get("/users/search", user.token, { q });
-    setSearchResults(r.users || []);
-  }, [user.token]);
-
   useEffect(() => {
-    const t = setTimeout(() => doSearch(search), 300);
+    const t = setTimeout(async () => {
+      if (!search.trim()) { setSearchResults([]); return; }
+      const r = await api.get("/users/search", user.token, { q: search });
+      setSearchResults(r.users || []);
+    }, 300);
     return () => clearTimeout(t);
-  }, [search, doSearch]);
+  }, [search, user.token]);
+
+  const openDM = (f) => setOpenDMs(prev =>
+    prev.some(d => d.username === f.username) ? prev : [...prev, f].slice(-3)
+  );
+  const closeDM = (username) => setOpenDMs(prev => prev.filter(d => d.username !== username));
+
+  const joinRoom = async (room) => {
+    await api.post(`/rooms/${room.room_id}/join`, {}, user.token);
+    setActiveRoom(room); setNav("groups");
+  };
 
   const sendFriendReq = async (to) => {
     await api.post("/friends/request", { to_username: to }, user.token);
-    doSearch(search);
+    const r = await api.get("/users/search", user.token, { q: search });
+    setSearchResults(r.users || []);
   };
 
   const respondFriend = async (from, accept) => {
@@ -292,455 +231,759 @@ function ChatShell({ onLogout }) {
     loadFriends(); loadPending();
   };
 
-  const createRoom = async () => {
-    if (!newRoom.trim()) return;
-    const r = await api.post("/rooms", { room_name: newRoom }, user.token);
-    if (r.success) { setNewRoom(""); setShowNewRoom(false); loadRooms(); }
+  const createRoom = async (name) => {
+    const r = await api.post("/rooms", { room_name: name }, user.token);
+    if (r.success) loadRooms();
   };
-
-  const joinRoom = async (room_id) => {
-    await api.post(`/rooms/${room_id}/join`, {}, user.token);
-    loadRooms();
-    const rm = rooms.find(r => r.room_id === room_id);
-    if (rm) setActiveChat({ type: "room", id: room_id, name: rm.room_name });
-  };
-
-  const SIDEBAR_W = 300;
 
   return (
-    <div style={{
-      height: "100vh", display: "flex", background: "#080b12",
-      fontFamily: "'DM Sans', sans-serif", overflow: "hidden", color: "#f1f5f9"
-    }}>
-      {/* Sidebar */}
-      <div style={{
-        width: SIDEBAR_W, display: "flex", flexDirection: "column",
-        borderRight: "1px solid #1e2330", background: "#0c0f1a", flexShrink: 0
-      }}>
-        {/* User header */}
-        <div style={{
-          padding: "20px 16px", borderBottom: "1px solid #1e2330",
-          display: "flex", alignItems: "center", gap: 12
-        }}>
-          <Avatar name={user.display_name} size={40} online={true} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: "#f1f5f9", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {user.display_name}
-            </div>
-            <div style={{ fontSize: 12, color: "#22c55e", fontWeight: 600 }}>● Online</div>
+    <div style={{ minHeight: "100vh", background: "#F0F2F5", fontFamily: SYS, color: "#1C1E21" }}>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        * { box-sizing: border-box; }
+        body { margin: 0; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-thumb { background: #CED0D4; border-radius: 4px; }
+      `}</style>
+
+      <TopNav
+        pending={pending} onLogout={onLogout}
+        search={search} setSearch={setSearch}
+        searchResults={searchResults}
+        nav={nav} setNav={setNav}
+        sendFriendReq={sendFriendReq} openDM={openDM}
+      />
+
+      <div style={{ display: "flex", maxWidth: 1280, margin: "0 auto", paddingTop: 56 }}>
+        <LeftNav
+          rooms={rooms} pending={pending}
+          nav={nav} setNav={setNav}
+          activeRoom={activeRoom} onOpenRoom={joinRoom}
+          onCreateRoom={createRoom}
+        />
+
+        <main style={{ flex: 1, padding: "20px 8px", minWidth: 0 }}>
+          <div style={{ maxWidth: 680, margin: "0 auto" }}>
+            {(nav === "home" || nav === "groups") && (
+              <FeedView activeRoom={activeRoom} rooms={rooms} onOpenRoom={joinRoom} nav={nav} />
+            )}
+            {nav === "friends" && (
+              <FriendsView friends={friends} pending={pending} respondFriend={respondFriend} openDM={openDM} />
+            )}
           </div>
-          <button onClick={onLogout} title="Logout" style={{
-            background: "none", border: "none", color: "#475569",
-            cursor: "pointer", fontSize: 18, padding: 4, borderRadius: 6,
-            lineHeight: 1
-          }}>⎋</button>
-        </div>
+        </main>
 
-        {/* Tabs */}
-        <div style={{ display: "flex", borderBottom: "1px solid #1e2330" }}>
-          {[["friends","👥"],["rooms","#"],["search","🔍"],["pending","🔔"]].map(([t, ic]) => (
-            <button key={t} onClick={() => setTab(t)} style={{
-              flex: 1, padding: "10px 0", border: "none",
-              background: tab === t ? "#13172a" : "transparent",
-              color: tab === t ? "#6366f1" : "#475569",
-              cursor: "pointer", fontSize: 13, fontFamily: "inherit",
-              fontWeight: 600, borderBottom: tab === t ? "2px solid #6366f1" : "2px solid transparent",
-              position: "relative"
-            }}>
-              {ic}
-              {t === "pending" && pending.length > 0 && (
-                <span style={{
-                  position: "absolute", top: 4, right: 4,
-                  background: "#ef4444", color: "#fff",
-                  borderRadius: "50%", width: 16, height: 16,
-                  fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center",
-                  fontWeight: 800
-                }}>{pending.length}</span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* Panel content */}
-        <div style={{ flex: 1, overflowY: "auto" }}>
-
-          {tab === "friends" && (
-            <div>
-              <div style={{ padding: "12px 16px 4px", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                Direct Messages
-              </div>
-              {friends.length === 0 && (
-                <div style={{ padding: "24px 16px", color: "#475569", fontSize: 13, textAlign: "center" }}>
-                  No friends yet.<br/>Search to add people!
-                </div>
-              )}
-              {friends.map(f => (
-                <SidebarItem key={f.username}
-                  name={f.display_name} sub={`@${f.username}`}
-                  online={f.online}
-                  active={activeChat?.id === f.username}
-                  onClick={() => setActiveChat({ type: "dm", id: f.username, name: f.display_name })}
-                />
-              ))}
-            </div>
-          )}
-
-          {tab === "rooms" && (
-            <div>
-              <div style={{ padding: "12px 16px 4px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>Rooms</span>
-                <button onClick={() => setShowNewRoom(v => !v)} style={{
-                  background: "none", border: "none", color: "#6366f1",
-                  cursor: "pointer", fontSize: 20, lineHeight: 1, fontWeight: 300
-                }}>+</button>
-              </div>
-              {showNewRoom && (
-                <div style={{ padding: "0 12px 12px", display: "flex", gap: 8 }}>
-                  <input value={newRoom} onChange={e => setNewRoom(e.target.value)}
-                    placeholder="room-name" onKeyDown={e => e.key === "Enter" && createRoom()}
-                    style={{
-                      flex: 1, padding: "8px 10px", background: "#1a1f2e",
-                      border: "1px solid #1e2330", borderRadius: 8,
-                      color: "#f1f5f9", fontSize: 13, fontFamily: "inherit", outline: "none"
-                    }} />
-                  <button onClick={createRoom} style={{
-                    padding: "8px 12px", background: "#6366f1", border: "none",
-                    borderRadius: 8, color: "#fff", cursor: "pointer",
-                    fontFamily: "inherit", fontWeight: 700, fontSize: 13
-                  }}>Go</button>
-                </div>
-              )}
-              {rooms.map(r => (
-                <SidebarItem key={r.room_id}
-                  name={`# ${r.room_name}`} sub={`${r.members} member${r.members !== 1 ? "s" : ""}`}
-                  active={activeChat?.id === r.room_id}
-                  onClick={() => {
-                    setActiveChat({ type: "room", id: r.room_id, name: r.room_name });
-                    joinRoom(r.room_id);
-                  }}
-                  isRoom
-                />
-              ))}
-            </div>
-          )}
-
-          {tab === "search" && (
-            <div>
-              <div style={{ padding: 12 }}>
-                <input value={search} onChange={e => setSearch(e.target.value)}
-                  placeholder="Search by username…" autoFocus
-                  style={{
-                    width: "100%", padding: "10px 12px", background: "#1a1f2e",
-                    border: "1px solid #1e2330", borderRadius: 10,
-                    color: "#f1f5f9", fontSize: 14, fontFamily: "inherit",
-                    outline: "none", boxSizing: "border-box"
-                  }} />
-              </div>
-              {searchResults.map(u => (
-                <div key={u.username} style={{
-                  padding: "10px 16px", display: "flex",
-                  alignItems: "center", gap: 12
-                }}>
-                  <Avatar name={u.display_name} size={36} online={u.online} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14, color: "#f1f5f9" }}>{u.display_name}</div>
-                    <div style={{ fontSize: 12, color: "#475569" }}>@{u.username}</div>
-                  </div>
-                  {u.friend_status === "none" && (
-                    <button onClick={() => sendFriendReq(u.username)} style={addBtnStyle}>Add</button>
-                  )}
-                  {u.friend_status === "sent" && (
-                    <span style={{ fontSize: 12, color: "#64748b" }}>Sent</span>
-                  )}
-                  {u.friend_status === "friends" && (
-                    <span style={{ fontSize: 12, color: "#22c55e" }}>✓</span>
-                  )}
-                  {u.friend_status === "pending" && (
-                    <div style={{ display: "flex", gap: 4 }}>
-                      <button onClick={() => respondFriend(u.username, true)} style={{ ...addBtnStyle, background: "#22c55e" }}>✓</button>
-                      <button onClick={() => respondFriend(u.username, false)} style={{ ...addBtnStyle, background: "#ef4444" }}>✕</button>
-                    </div>
-                  )}
-                </div>
-              ))}
-              {search && searchResults.length === 0 && (
-                <div style={{ padding: "24px 16px", color: "#475569", fontSize: 13, textAlign: "center" }}>No users found</div>
-              )}
-            </div>
-          )}
-
-          {tab === "pending" && (
-            <div>
-              <div style={{ padding: "12px 16px 4px", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                Friend Requests
-              </div>
-              {pending.length === 0 && (
-                <div style={{ padding: "24px 16px", color: "#475569", fontSize: 13, textAlign: "center" }}>No pending requests</div>
-              )}
-              {pending.map(u => (
-                <div key={u.username} style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-                  <Avatar name={u.display_name} size={36} online={u.online} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14, color: "#f1f5f9" }}>{u.display_name}</div>
-                    <div style={{ fontSize: 12, color: "#475569" }}>@{u.username}</div>
-                  </div>
-                  <button onClick={() => respondFriend(u.username, true)}
-                    style={{ ...addBtnStyle, background: "#22c55e" }}>✓</button>
-                  <button onClick={() => respondFriend(u.username, false)}
-                    style={{ ...addBtnStyle, background: "#ef4444" }}>✕</button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <RightContacts friends={friends} onOpenDM={openDM} />
       </div>
 
-      {/* Main chat area */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-        {activeChat
-          ? <ChatView chat={activeChat} />
-          : <EmptyState />
-        }
+      <div style={{ position: "fixed", bottom: 0, right: 16, display: "flex", gap: 12, alignItems: "flex-end", zIndex: 200 }}>
+        {openDMs.map(dm => <ChatPopup key={dm.username} friend={dm} onClose={() => closeDM(dm.username)} />)}
       </div>
     </div>
   );
 }
 
-const addBtnStyle = {
-  padding: "5px 12px", background: "#6366f1", border: "none",
-  borderRadius: 6, color: "#fff", cursor: "pointer",
-  fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 12
-};
+// ─── Top Nav ──────────────────────────────────────────────────────────────────
+function TopNav({ pending, onLogout, search, setSearch, searchResults, nav, setNav, sendFriendReq, openDM }) {
+  const user = useAuth();
+  const [showSearch, setShowSearch] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showNotifs, setShowNotifs] = useState(false);
 
-function SidebarItem({ name, sub, online, active, onClick, isRoom }) {
+  return (
+    <div style={{
+      position: "fixed", top: 0, left: 0, right: 0, height: 56,
+      background: "#fff", boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+      display: "flex", alignItems: "center", padding: "0 16px",
+      zIndex: 100, gap: 8
+    }}>
+      {/* Logo */}
+      <div onClick={() => setNav("home")} style={{
+        width: 40, height: 40, borderRadius: "50%", background: "#1877F2",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 26, fontWeight: 900, color: "#fff", cursor: "pointer",
+        fontStyle: "italic", flexShrink: 0
+      }}>f</div>
+
+      {/* Search */}
+      <div style={{ position: "relative" }}>
+        <div style={{
+          background: "#F0F2F5", borderRadius: 20,
+          display: "flex", alignItems: "center", padding: "0 12px",
+          gap: 8, height: 40, width: showSearch ? 240 : 40,
+          transition: "width 0.2s", overflow: "hidden", cursor: "text"
+        }} onClick={() => setShowSearch(true)}>
+          <span style={{ color: "#65676B", fontSize: 16, flexShrink: 0 }}>🔍</span>
+          {showSearch && (
+            <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
+              onBlur={() => { if (!search) setShowSearch(false); }}
+              placeholder="Search StreamChat"
+              style={{
+                background: "none", border: "none", outline: "none",
+                fontSize: 15, color: "#1C1E21", flex: 1, fontFamily: SYS, width: "100%"
+              }} />
+          )}
+        </div>
+        {showSearch && search && searchResults.length > 0 && (
+          <div style={{
+            position: "absolute", top: 44, left: 0, width: 320,
+            background: "#fff", borderRadius: 8,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 200
+          }}>
+            {searchResults.map(u => (
+              <div key={u.username} style={{ padding: "10px 12px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}
+                onMouseEnter={e => e.currentTarget.style.background = "#F2F2F2"}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+              >
+                <Avatar name={u.display_name} size={36} online={u.online} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{u.display_name}</div>
+                  <div style={{ fontSize: 12, color: "#65676B" }}>@{u.username}</div>
+                </div>
+                {u.friend_status === "none" && (
+                  <button onClick={() => sendFriendReq(u.username)} style={smallBtn("#1877F2")}>Add</button>
+                )}
+                {u.friend_status === "friends" && (
+                  <button onClick={() => openDM({ username: u.username, display_name: u.display_name })}
+                    style={smallBtn("#E4E6EB", "#1C1E21")}>Message</button>
+                )}
+                {u.friend_status === "sent" && <span style={{ fontSize: 12, color: "#65676B" }}>Sent</span>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Center nav */}
+      <div style={{ flex: 1, display: "flex", justifyContent: "center", gap: 4 }}>
+        {[["home","🏠","Home"],["friends","👥","Friends"],["groups","#️⃣","Groups"]].map(([id, icon, label]) => (
+          <button key={id} onClick={() => setNav(id)} title={label} style={{
+            padding: "0 28px", height: 48, border: "none",
+            background: nav === id ? "#E7F3FF" : "none",
+            borderBottom: `3px solid ${nav === id ? "#1877F2" : "transparent"}`,
+            color: nav === id ? "#1877F2" : "#65676B",
+            fontSize: 20, cursor: "pointer", borderRadius: "4px 4px 0 0",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontFamily: SYS, transition: "background 0.1s"
+          }}>{icon}</button>
+        ))}
+      </div>
+
+      {/* Right */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {/* Notifs */}
+        <div style={{ position: "relative" }}>
+          <button onClick={() => { setShowNotifs(v => !v); setShowUserMenu(false); }} style={{
+            width: 40, height: 40, borderRadius: "50%", background: "#E4E6EB",
+            border: "none", cursor: "pointer", fontSize: 18,
+            display: "flex", alignItems: "center", justifyContent: "center", position: "relative"
+          }}>
+            🔔
+            {pending.length > 0 && (
+              <span style={{
+                position: "absolute", top: 0, right: 0,
+                background: "#F02849", color: "#fff", borderRadius: "50%",
+                width: 18, height: 18, fontSize: 10,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontWeight: 800, border: "2px solid #fff"
+              }}>{pending.length}</span>
+            )}
+          </button>
+          {showNotifs && (
+            <div style={{
+              position: "absolute", top: 44, right: 0, width: 280,
+              background: "#fff", borderRadius: 8,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.15)", padding: 16, zIndex: 200
+            }}>
+              <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 12 }}>Notifications</div>
+              {pending.length === 0
+                ? <div style={{ color: "#65676B", fontSize: 14 }}>No new notifications</div>
+                : pending.map(u => (
+                  <div key={u.username} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
+                    <Avatar name={u.display_name} size={40} />
+                    <div style={{ fontSize: 13 }}>
+                      <span style={{ fontWeight: 600 }}>{u.display_name}</span> sent you a friend request
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
+          )}
+        </div>
+
+        {/* User menu */}
+        <div style={{ position: "relative" }}>
+          <div onClick={() => { setShowUserMenu(v => !v); setShowNotifs(false); }} style={{ cursor: "pointer" }}>
+            <Avatar name={user.display_name} size={40} />
+          </div>
+          {showUserMenu && (
+            <div style={{
+              position: "absolute", top: 44, right: 0, width: 220,
+              background: "#fff", borderRadius: 8,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.15)", padding: 8, zIndex: 200
+            }}>
+              <div style={{ padding: "10px 12px", borderBottom: "1px solid #E4E6EB", marginBottom: 8 }}>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>{user.display_name}</div>
+                <div style={{ fontSize: 12, color: "#65676B" }}>@{user.username}</div>
+              </div>
+              <button onClick={onLogout} style={{
+                width: "100%", padding: "10px 12px", border: "none",
+                background: "none", textAlign: "left", cursor: "pointer",
+                borderRadius: 6, fontSize: 15, fontFamily: SYS, color: "#1C1E21"
+              }}
+                onMouseEnter={e => e.currentTarget.style.background = "#F2F2F2"}
+                onMouseLeave={e => e.currentTarget.style.background = "none"}
+              >🚪 Log Out</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Left Nav ─────────────────────────────────────────────────────────────────
+function LeftNav({ rooms, pending, nav, setNav, activeRoom, onOpenRoom, onCreateRoom }) {
+  const user = useAuth();
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState("");
+
+  const handleCreate = async () => {
+    if (!newName.trim()) return;
+    await onCreateRoom(newName.trim());
+    setNewName(""); setShowCreate(false);
+  };
+
+  return (
+    <div style={{
+      width: 280, flexShrink: 0, padding: "16px 8px",
+      position: "sticky", top: 56,
+      height: "calc(100vh - 56px)", overflowY: "auto"
+    }}>
+      <NavRow icon={<Avatar name={user.display_name} size={36} online />}
+        label={user.display_name} active={false} onClick={() => {}} bold />
+
+      <div style={{ borderTop: "1px solid #E4E6EB", margin: "8px 0" }} />
+
+      {[
+        { id: "home", icon: "🏠", label: "Home" },
+        { id: "friends", icon: "👥", label: "Friends", badge: pending.length },
+        { id: "groups", icon: "#️⃣", label: "Groups" },
+      ].map(item => (
+        <NavRow key={item.id} icon={<span style={{ fontSize: 20 }}>{item.icon}</span>}
+          label={item.label} badge={item.badge}
+          active={nav === item.id} onClick={() => setNav(item.id)} />
+      ))}
+
+      <div style={{ borderTop: "1px solid #E4E6EB", margin: "8px 0" }} />
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", marginBottom: 4 }}>
+        <span style={{ fontWeight: 700, fontSize: 17 }}>Groups</span>
+        <button onClick={() => setShowCreate(v => !v)} style={{
+          background: "#E4E6EB", border: "none", borderRadius: "50%",
+          width: 32, height: 32, fontSize: 22, cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center", color: "#1C1E21"
+        }}>+</button>
+      </div>
+
+      {showCreate && (
+        <div style={{ padding: "0 8px 8px", display: "flex", gap: 8 }}>
+          <input value={newName} onChange={e => setNewName(e.target.value)}
+            placeholder="Group name" autoFocus
+            onKeyDown={e => e.key === "Enter" && handleCreate()}
+            style={{
+              flex: 1, padding: "8px 12px", border: "1px solid #CED0D4",
+              borderRadius: 6, fontSize: 14, outline: "none",
+              fontFamily: SYS, color: "#1C1E21"
+            }} />
+          <button onClick={handleCreate} style={smallBtn("#1877F2")}>Create</button>
+        </div>
+      )}
+
+      {rooms.map(r => (
+        <NavRow key={r.room_id}
+          icon={
+            <div style={{
+              width: 36, height: 36, borderRadius: "50%", background: "#1877F2",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 16, fontWeight: 800, color: "#fff"
+            }}>#</div>
+          }
+          label={r.room_name}
+          sub={`${r.members} member${r.members !== 1 ? "s" : ""}`}
+          active={activeRoom?.room_id === r.room_id}
+          onClick={() => onOpenRoom(r)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function NavRow({ icon, label, sub, active, onClick, badge, bold }) {
+  const [hov, setHov] = useState(false);
   return (
     <div onClick={onClick} style={{
-      padding: "10px 16px", display: "flex", alignItems: "center", gap: 12,
-      cursor: "pointer", background: active ? "#13172a" : "transparent",
-      borderLeft: active ? "3px solid #6366f1" : "3px solid transparent",
-      transition: "all 0.15s"
+      display: "flex", alignItems: "center", gap: 12,
+      padding: "8px 12px", borderRadius: 8, cursor: "pointer", marginBottom: 2,
+      background: active ? "#E7F3FF" : hov ? "#E4E6EB" : "transparent",
+      color: active ? "#1877F2" : "#1C1E21"
     }}
-      onMouseEnter={e => { if (!active) e.currentTarget.style.background = "#0f1320"; }}
-      onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}
+      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
     >
-      {isRoom
-        ? <div style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: "#1a1f2e", display: "flex", alignItems: "center",
-            justifyContent: "center", fontSize: 16, fontWeight: 800, color: "#6366f1"
-          }}>#</div>
-        : <Avatar name={name} size={36} online={online} />
-      }
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontWeight: 600, fontSize: 14, color: "#e2e8f0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>
-        <div style={{ fontSize: 12, color: "#475569" }}>{sub}</div>
+      {icon}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: bold || active ? 700 : 500, fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</div>
+        {sub && <div style={{ fontSize: 12, color: "#65676B" }}>{sub}</div>}
       </div>
+      {badge > 0 && (
+        <span style={{
+          background: "#F02849", color: "#fff", borderRadius: "50%",
+          minWidth: 20, height: 20, fontSize: 11, padding: "0 4px",
+          display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800
+        }}>{badge}</span>
+      )}
     </div>
   );
 }
 
-function EmptyState() {
+// ─── Right Contacts ───────────────────────────────────────────────────────────
+function RightContacts({ friends, onOpenDM }) {
   return (
     <div style={{
-      flex: 1, display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "center", gap: 16, color: "#334155"
+      width: 280, flexShrink: 0, padding: "16px 8px",
+      position: "sticky", top: 56,
+      height: "calc(100vh - 56px)", overflowY: "auto"
     }}>
-      <div style={{ fontSize: 64 }}>💬</div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: "#475569" }}>Select a conversation</div>
-      <div style={{ fontSize: 14, color: "#334155" }}>Choose a friend or room from the sidebar</div>
+      <div style={{ padding: "0 12px", marginBottom: 8, fontWeight: 700, fontSize: 17 }}>Contacts</div>
+      {friends.length === 0 && (
+        <div style={{ padding: "12px", color: "#65676B", fontSize: 14 }}>
+          No friends yet. Search to add people!
+        </div>
+      )}
+      {[...friends].sort((a, b) => (b.online ? 1 : 0) - (a.online ? 1 : 0)).map(f => (
+        <NavRow key={f.username}
+          icon={<Avatar name={f.display_name} size={36} online={f.online} />}
+          label={f.display_name}
+          sub={f.online ? "Active now" : "Offline"}
+          active={false} onClick={() => onOpenDM(f)}
+        />
+      ))}
     </div>
   );
 }
 
-// ─── Chat View ───────────────────────────────────────────────────────────────
-
-function ChatView({ chat }) {
+// ─── Feed View ────────────────────────────────────────────────────────────────
+function FeedView({ activeRoom, rooms, onOpenRoom, nav }) {
   const user = useAuth();
   const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(true);
-  const bottomRef = useRef(null);
-  const esRef = useRef(null);
-
-  const loadHistory = useCallback(async () => {
-    setLoading(true);
-    const params = chat.type === "room"
-      ? { room_id: chat.id }
-      : { to_user: chat.id };
-    const r = await api.get("/history", user.token, { ...params, limit: 60 });
-    setMessages(r.messages || []);
-    setLoading(false);
-  }, [chat.id, chat.type, user.token]);
+  const [loading, setLoading] = useState(false);
+  const [postText, setPostText] = useState("");
+  const [postImg, setPostImg] = useState(null);
+  const [posting, setPosting] = useState(false);
+  const fileRef = useRef(null);
 
   useEffect(() => {
-    setMessages([]);
-    loadHistory();
+    if (!activeRoom) { setMessages([]); return; }
+    setMessages([]); setLoading(true);
+    api.get("/history", user.token, { room_id: activeRoom.room_id, limit: 60 })
+      .then(r => { setMessages(r.messages || []); setLoading(false); });
 
-    // SSE stream
-    const params = new URLSearchParams({
-      token: user.token,
-      me: user.username,
-      ...(chat.type === "room" ? { room_id: chat.id } : { to_user: chat.id })
-    });
+    const params = new URLSearchParams({ token: user.token, me: user.username, room_id: activeRoom.room_id });
     const es = new EventSource(`http://localhost:8001/api/stream?${params}`);
-    esRef.current = es;
-
     es.onmessage = (e) => {
       const data = JSON.parse(e.data);
       if (data.type === "connected") return;
-      setMessages(prev => {
-        if (prev.some(m => m.msg_id === data.msg_id)) return prev;
-        return [...prev, data];
-      });
+      setMessages(prev => prev.some(m => m.msg_id === data.msg_id) ? prev : [data, ...prev]);
     };
+    return () => es.close();
+  }, [activeRoom?.room_id]);
 
-    return () => { es.close(); };
-  }, [chat.id, chat.type]);
+  const handleImage = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const MAX = 900;
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      setPostImg(canvas.toDataURL("image/jpeg", 0.75));
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+    e.target.value = "";
+  };
+
+  const submitPost = async () => {
+    if (!postText.trim() && !postImg) return;
+    setPosting(true);
+    const content = postImg ? `[IMG]${postImg}|||${postText}` : postText;
+    await api.post("/send", { sender: user.username, room_id: activeRoom.room_id, content }, user.token);
+    setPostText(""); setPostImg(null); setPosting(false);
+  };
+
+  // Groups landing
+  if (nav === "groups" && !activeRoom) {
+    return (
+      <div>
+        <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 16 }}>Your Groups</div>
+        {rooms.length === 0 && (
+          <Card style={{ padding: 32, textAlign: "center", color: "#65676B" }}>
+            No groups yet. Create one from the left sidebar!
+          </Card>
+        )}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          {rooms.map(r => (
+            <div key={r.room_id} onClick={() => onOpenRoom(r)} style={{
+              background: "#fff", borderRadius: 8, overflow: "hidden",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.1)", cursor: "pointer"
+            }}
+              onMouseEnter={e => e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)"}
+              onMouseLeave={e => e.currentTarget.style.boxShadow = "0 1px 2px rgba(0,0,0,0.1)"}
+            >
+              <div style={{
+                height: 80, background: "linear-gradient(135deg,#1877F2,#42B72A)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 32, fontWeight: 800, color: "#fff"
+              }}>#</div>
+              <div style={{ padding: 12 }}>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>{r.room_name}</div>
+                <div style={{ fontSize: 13, color: "#65676B" }}>{r.members} member{r.members !== 1 ? "s" : ""}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Home no room
+  if (!activeRoom) {
+    return (
+      <Card style={{ padding: 48, textAlign: "center" }}>
+        <div style={{ fontSize: 64, marginBottom: 12 }}>👥</div>
+        <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 8 }}>Welcome to StreamChat</div>
+        <div style={{ color: "#65676B" }}>Join a group from the sidebar to see posts</div>
+      </Card>
+    );
+  }
+
+  const canPost = postText.trim() || postImg;
+
+  return (
+    <div>
+      {/* Composer */}
+      <Card style={{ padding: 12, marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+          <Avatar name={user.display_name} size={40} />
+          <div style={{
+            flex: 1, background: "#F0F2F5", borderRadius: 20,
+            padding: "10px 16px", cursor: "text"
+          }} onClick={() => document.getElementById("post-ta")?.focus()}>
+            <textarea id="post-ta" value={postText}
+              onChange={e => setPostText(e.target.value)}
+              placeholder={`What's on your mind in #${activeRoom.room_name}?`}
+              rows={postText ? 3 : 1}
+              style={{
+                width: "100%", background: "none", border: "none",
+                outline: "none", fontSize: 16, fontFamily: SYS,
+                color: "#1C1E21", resize: "none", lineHeight: 1.4
+              }} />
+          </div>
+        </div>
+
+        {postImg && (
+          <div style={{ position: "relative", marginBottom: 10, borderRadius: 8, overflow: "hidden" }}>
+            <img src={postImg} alt="preview" style={{ width: "100%", maxHeight: 300, objectFit: "cover", display: "block" }} />
+            <button onClick={() => setPostImg(null)} style={{
+              position: "absolute", top: 8, right: 8,
+              background: "rgba(0,0,0,0.55)", border: "none", borderRadius: "50%",
+              width: 30, height: 30, color: "#fff", cursor: "pointer",
+              fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center"
+            }}>✕</button>
+          </div>
+        )}
+
+        <div style={{ borderTop: "1px solid #E4E6EB", paddingTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <input ref={fileRef} type="file" accept="image/*" onChange={handleImage} style={{ display: "none" }} />
+            <button onClick={() => fileRef.current?.click()} style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "8px 12px", border: "none", borderRadius: 6,
+              background: "none", cursor: "pointer", color: "#45BD62",
+              fontFamily: SYS, fontWeight: 600, fontSize: 14
+            }}
+              onMouseEnter={e => e.currentTarget.style.background = "#F0F2F5"}
+              onMouseLeave={e => e.currentTarget.style.background = "none"}
+            >🖼️ Photo/Video</button>
+          </div>
+          <button onClick={submitPost} disabled={posting || !canPost} style={{
+            padding: "8px 20px",
+            background: canPost && !posting ? "#1877F2" : "#E4E6EB",
+            border: "none", borderRadius: 6,
+            color: canPost && !posting ? "#fff" : "#BCC0C4",
+            fontWeight: 700, fontSize: 15,
+            cursor: canPost && !posting ? "pointer" : "default",
+            fontFamily: SYS
+          }}>{posting ? "Posting…" : "Post"}</button>
+        </div>
+      </Card>
+
+      {loading && <FbSpinner />}
+
+      {!loading && messages.length === 0 && (
+        <Card style={{ padding: 32, textAlign: "center", color: "#65676B" }}>
+          No posts yet. Be the first to post!
+        </Card>
+      )}
+
+      {[...messages]
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        .map(m => <PostCard key={m.msg_id} msg={m} />)
+      }
+    </div>
+  );
+}
+
+// ─── Post Card ────────────────────────────────────────────────────────────────
+function PostCard({ msg }) {
+  const hasImg = isImg(msg.content);
+  const { src, text } = hasImg ? parseImg(msg.content) : { src: null, text: msg.content };
+  const [liked, setLiked] = useState(false);
+
+  return (
+    <Card style={{ marginBottom: 16, overflow: "hidden" }}>
+      <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+        <Avatar name={msg.display_name} size={42} />
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{msg.display_name}</div>
+          <div style={{ fontSize: 12, color: "#65676B" }}>{fmt(msg.timestamp)}</div>
+        </div>
+      </div>
+
+      {text && <div style={{ padding: "0 16px 12px", fontSize: 15, lineHeight: 1.5 }}>{text}</div>}
+      {src && <img src={src} alt="post" style={{ width: "100%", display: "block", maxHeight: 500, objectFit: "cover" }} />}
+
+      <div style={{ borderTop: "1px solid #E4E6EB", padding: "2px 12px", display: "flex", gap: 4 }}>
+        {[
+          { label: "👍 Like", active: liked, onClick: () => setLiked(v => !v), color: "#1877F2" },
+          { label: "💬 Comment", active: false, onClick: () => {} },
+          { label: "↗ Share", active: false, onClick: () => {} },
+        ].map(btn => (
+          <button key={btn.label} onClick={btn.onClick} style={{
+            flex: 1, padding: "8px 0", border: "none", background: "none",
+            cursor: "pointer", fontSize: 14, fontWeight: 700,
+            color: btn.active ? btn.color : "#65676B",
+            borderRadius: 4, fontFamily: SYS
+          }}
+            onMouseEnter={e => e.currentTarget.style.background = "#F0F2F5"}
+            onMouseLeave={e => e.currentTarget.style.background = "none"}
+          >{btn.label}</button>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+// ─── Friends View ─────────────────────────────────────────────────────────────
+function FriendsView({ friends, pending, respondFriend, openDM }) {
+  return (
+    <div>
+      {pending.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 12 }}>Friend Requests</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {pending.map(u => (
+              <Card key={u.username} style={{ padding: 16 }}>
+                <Avatar name={u.display_name} size={80} />
+                <div style={{ fontWeight: 700, fontSize: 16, marginTop: 8 }}>{u.display_name}</div>
+                <div style={{ fontSize: 13, color: "#65676B", marginBottom: 12 }}>@{u.username}</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => respondFriend(u.username, true)} style={{
+                    flex: 1, padding: "8px 0", background: "#1877F2", border: "none",
+                    borderRadius: 6, color: "#fff", fontWeight: 700, fontSize: 14,
+                    cursor: "pointer", fontFamily: SYS
+                  }}>Confirm</button>
+                  <button onClick={() => respondFriend(u.username, false)} style={{
+                    flex: 1, padding: "8px 0", background: "#E4E6EB", border: "none",
+                    borderRadius: 6, color: "#1C1E21", fontWeight: 700, fontSize: 14,
+                    cursor: "pointer", fontFamily: SYS
+                  }}>Delete</button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+      <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 12 }}>All Friends ({friends.length})</div>
+      {friends.length === 0 && (
+        <Card style={{ padding: 32, textAlign: "center", color: "#65676B" }}>
+          No friends yet. Use the search bar to find people!
+        </Card>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        {friends.map(f => (
+          <Card key={f.username} style={{ padding: 16, display: "flex", alignItems: "center", gap: 12 }}>
+            <Avatar name={f.display_name} size={60} online={f.online} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{f.display_name}</div>
+              <div style={{ fontSize: 12, color: f.online ? "#31A24C" : "#65676B" }}>
+                {f.online ? "● Active now" : "Offline"}
+              </div>
+            </div>
+            <button onClick={() => openDM(f)} style={smallBtn("#E4E6EB", "#1C1E21")}>Message</button>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Chat Popup ───────────────────────────────────────────────────────────────
+function ChatPopup({ friend, onClose }) {
+  const user = useAuth();
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [minimized, setMinimized] = useState(false);
+  const bottomRef = useRef(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    api.get("/history", user.token, { to_user: friend.username, limit: 40 })
+      .then(r => setMessages(r.messages || []));
+
+    const params = new URLSearchParams({ token: user.token, me: user.username, to_user: friend.username });
+    const es = new EventSource(`http://localhost:8001/api/stream?${params}`);
+    es.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      if (data.type === "connected") return;
+      setMessages(prev => prev.some(m => m.msg_id === data.msg_id) ? prev : [...prev, data]);
+    };
+    return () => es.close();
+  }, [friend.username]);
+
+  useEffect(() => {
+    if (!minimized) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, minimized]);
 
   const send = async () => {
     if (!input.trim()) return;
-    const content = input.trim();
-    setInput("");
-    await api.post("/send", {
-      sender: user.username,
-      ...(chat.type === "room" ? { room_id: chat.id } : { to_user: chat.id }),
-      content
-    }, user.token);
+    const content = input.trim(); setInput("");
+    await api.post("/send", { sender: user.username, to_user: friend.username, content }, user.token);
   };
 
-  // Group consecutive messages from same sender
-  const grouped = messages.reduce((acc, m, i) => {
-    const prev = messages[i - 1];
-    const isFirst = !prev || prev.sender !== m.sender ||
-      (new Date(m.timestamp) - new Date(prev.timestamp)) > 5 * 60000;
-    acc.push({ ...m, isFirst });
-    return acc;
-  }, []);
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      {/* Header */}
-      <div style={{
-        padding: "16px 24px", borderBottom: "1px solid #1e2330",
-        display: "flex", alignItems: "center", gap: 12,
-        background: "#0c0f1a"
-      }}>
-        {chat.type === "dm"
-          ? <Avatar name={chat.name} size={38} />
-          : <div style={{
-              width: 38, height: 38, borderRadius: 10,
-              background: "#1a1f2e", display: "flex", alignItems: "center",
-              justifyContent: "center", fontSize: 18, color: "#6366f1", fontWeight: 800
-            }}>#</div>
-        }
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 16, color: "#f1f5f9" }}>
-            {chat.type === "dm" ? chat.name : `# ${chat.name}`}
-          </div>
-          <div style={{ fontSize: 12, color: "#475569" }}>
-            {chat.type === "dm" ? `@${chat.id}` : "Group room"}
-          </div>
-        </div>
-      </div>
-
-      {/* Messages */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px" }}>
-        {loading && <Spinner />}
-        {!loading && messages.length === 0 && (
-          <div style={{ textAlign: "center", color: "#334155", paddingTop: 60, fontSize: 14 }}>
-            No messages yet. Say hello! 👋
-          </div>
-        )}
-        {grouped.map((m) => (
-          <MessageBubble key={m.msg_id} msg={m} isMe={m.sender === user.username} />
-        ))}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Input */}
-      <div style={{
-        padding: "16px 24px", borderTop: "1px solid #1e2330",
-        background: "#0c0f1a"
-      }}>
-        <div style={{
-          display: "flex", gap: 12, alignItems: "flex-end",
-          background: "#1a1f2e", borderRadius: 14,
-          border: "1px solid #1e2330", padding: "8px 8px 8px 16px"
-        }}>
-          <textarea
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
-            }}
-            placeholder={`Message ${chat.type === "room" ? "#" + chat.name : chat.name}…`}
-            rows={1}
-            style={{
-              flex: 1, background: "none", border: "none", outline: "none",
-              color: "#f1f5f9", fontSize: 14, fontFamily: "'DM Sans', sans-serif",
-              resize: "none", lineHeight: 1.5, maxHeight: 120, overflowY: "auto"
-            }}
-          />
-          <button onClick={send} disabled={!input.trim()} style={{
-            width: 38, height: 38, borderRadius: 10, border: "none",
-            background: input.trim() ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "#1e2330",
-            color: "#fff", cursor: input.trim() ? "pointer" : "default",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 16, flexShrink: 0, transition: "all 0.2s"
-          }}>➤</button>
-        </div>
-        <div style={{ fontSize: 11, color: "#334155", marginTop: 6, paddingLeft: 4 }}>
-          Enter to send · Shift+Enter for new line
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MessageBubble({ msg, isMe }) {
   return (
     <div style={{
-      display: "flex", gap: 10, marginBottom: msg.isFirst ? 16 : 4,
-      flexDirection: isMe ? "row-reverse" : "row",
-      alignItems: "flex-end"
+      width: 328, background: "#fff",
+      borderRadius: "12px 12px 0 0",
+      boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+      display: "flex", flexDirection: "column",
+      maxHeight: minimized ? 52 : 400
     }}>
-      {msg.isFirst && !isMe && <Avatar name={msg.display_name} size={32} />}
-      {msg.isFirst && isMe && <div style={{ width: 32 }} />}
-      {!msg.isFirst && <div style={{ width: 32 + 10 }} />}
-
-      <div style={{ maxWidth: "65%", minWidth: 0 }}>
-        {msg.isFirst && !isMe && (
-          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4, fontWeight: 600 }}>
-            {msg.display_name}
-            <span style={{ fontWeight: 400, marginLeft: 8 }}>{fmt(msg.timestamp)}</span>
-          </div>
-        )}
-        <div style={{
-          padding: "9px 14px",
-          background: isMe
-            ? "linear-gradient(135deg, #6366f1, #7c3aed)"
-            : "#1a1f2e",
-          color: "#f1f5f9", borderRadius: isMe
-            ? "18px 18px 4px 18px"
-            : "18px 18px 18px 4px",
-          fontSize: 14, lineHeight: 1.5,
-          border: isMe ? "none" : "1px solid #1e2330",
-          wordBreak: "break-word"
-        }}>
-          {msg.content}
-        </div>
-        {msg.isFirst && isMe && (
-          <div style={{ fontSize: 11, color: "#475569", textAlign: "right", marginTop: 3 }}>
-            {fmt(msg.timestamp)}
-          </div>
-        )}
+      {/* Header */}
+      <div onClick={() => setMinimized(v => !v)} style={{
+        padding: "8px 12px", display: "flex", alignItems: "center", gap: 8,
+        borderBottom: minimized ? "none" : "1px solid #E4E6EB",
+        cursor: "pointer", flexShrink: 0, borderRadius: "12px 12px 0 0",
+        background: "#fff"
+      }}>
+        <Avatar name={friend.display_name} size={32} online={friend.online} />
+        <span style={{ flex: 1, fontWeight: 700, fontSize: 15 }}>{friend.display_name}</span>
+        <button onClick={e => { e.stopPropagation(); setMinimized(v => !v); }} style={iBtn}>
+          {minimized ? "▲" : "▼"}
+        </button>
+        <button onClick={e => { e.stopPropagation(); onClose(); }} style={iBtn}>✕</button>
       </div>
+
+      {!minimized && (
+        <>
+          <div style={{ flex: 1, overflowY: "auto", padding: "8px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
+            {messages.map(m => {
+              const mine = m.sender === user.username;
+              const imgContent = isImg(m.content);
+              const { src, text } = imgContent ? parseImg(m.content) : { src: null, text: m.content };
+              return (
+                <div key={m.msg_id} style={{
+                  display: "flex", justifyContent: mine ? "flex-end" : "flex-start",
+                  alignItems: "flex-end", gap: 6
+                }}>
+                  {!mine && <Avatar name={m.display_name} size={24} />}
+                  <div style={{
+                    maxWidth: "70%",
+                    background: mine ? "#1877F2" : "#F0F2F5",
+                    color: mine ? "#fff" : "#1C1E21",
+                    borderRadius: mine ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+                    overflow: "hidden"
+                  }}>
+                    {src && <img src={src} alt="" style={{ width: "100%", display: "block" }} />}
+                    {text && <div style={{ padding: "8px 12px", fontSize: 14, lineHeight: 1.4, wordBreak: "break-word" }}>{text}</div>}
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={bottomRef} />
+          </div>
+
+          <div style={{ padding: "8px 12px", borderTop: "1px solid #E4E6EB", display: "flex", gap: 8, alignItems: "center" }}>
+            <input value={input} onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && send()}
+              placeholder="Aa"
+              style={{
+                flex: 1, padding: "8px 12px", background: "#F0F2F5",
+                border: "none", borderRadius: 20, fontSize: 14,
+                outline: "none", fontFamily: SYS, color: "#1C1E21"
+              }} />
+            <button onClick={send} disabled={!input.trim()} style={{
+              width: 32, height: 32, borderRadius: "50%",
+              background: input.trim() ? "#1877F2" : "#E4E6EB",
+              border: "none", cursor: input.trim() ? "pointer" : "default",
+              color: "#fff", fontSize: 14,
+              display: "flex", alignItems: "center", justifyContent: "center"
+            }}>➤</button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
+
+// ─── Shared ───────────────────────────────────────────────────────────────────
+function Card({ children, style = {} }) {
+  return (
+    <div style={{
+      background: "#fff", borderRadius: 8,
+      boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
+      ...style
+    }}>{children}</div>
+  );
+}
+
+function FbSpinner() {
+  return (
+    <div style={{ display: "flex", justifyContent: "center", padding: 32 }}>
+      <div style={{
+        width: 36, height: 36, borderRadius: "50%",
+        border: "3px solid #E4E6EB", borderTopColor: "#1877F2",
+        animation: "spin 0.7s linear infinite"
+      }} />
+    </div>
+  );
+}
+
+const SYS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+
+const smallBtn = (bg, color = "#fff") => ({
+  padding: "6px 14px", background: bg, border: "none",
+  borderRadius: 6, color, cursor: "pointer",
+  fontFamily: SYS, fontWeight: 700, fontSize: 14, whiteSpace: "nowrap"
+});
+
+const iBtn = {
+  background: "none", border: "none", cursor: "pointer",
+  color: "#65676B", fontSize: 14, padding: "2px 4px",
+  borderRadius: 4, lineHeight: 1
+};
 
 export default App;
